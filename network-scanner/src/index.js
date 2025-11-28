@@ -82,14 +82,13 @@ class NetworkScanner {
    * @returns {Promise<Object|null>} Device info if reachable, null otherwise
    */
   async checkHost(host) {
-    const openPorts = [];
+    // Check all ports in parallel for better performance
+    const portChecks = this.ports.map(port => 
+      this.checkPort(host, port).then(isOpen => isOpen ? port : null)
+    );
     
-    for (const port of this.ports) {
-      const isOpen = await this.checkPort(host, port);
-      if (isOpen) {
-        openPorts.push(port);
-      }
-    }
+    const results = await Promise.all(portChecks);
+    const openPorts = results.filter(port => port !== null);
     
     if (openPorts.length > 0) {
       return {
@@ -359,6 +358,9 @@ class ScannerServer {
       document.getElementById('progressBar').style.display = 'block';
       document.getElementById('status').textContent = 'Scanning...';
       document.getElementById('resultsCard').style.display = 'none';
+      
+      // Start progress polling
+      pollProgress();
       
       try {
         const response = await fetch('/api/scan', {
