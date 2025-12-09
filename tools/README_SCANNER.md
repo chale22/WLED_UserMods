@@ -47,10 +47,13 @@ This scanner works with:
 - ✅ Safari
 - ✅ Opera
 
-**Note**: Due to browser security restrictions (CORS), you may need to:
-- Ensure WLED controllers allow CORS requests
-- Use controllers on the same network
-- For local testing, some browsers may require HTTPS or localhost
+**Important**: For best results, open this file directly from your local filesystem (`file://`) or serve it over HTTP (not HTTPS). 
+
+**Note**: Due to browser security restrictions:
+- When served over HTTPS, browsers will block HTTP requests to WLED controllers (mixed content)
+- WLED controllers typically only support HTTP on local networks
+- Opening as a local file (`file://`) or from HTTP works best
+- Ensure WLED controllers allow CORS requests (enabled by default)
 
 ## CORS Configuration
 

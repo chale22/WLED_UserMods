@@ -344,7 +344,7 @@
         <div class="scanner-panel">
             <div class="alert info">
                 <span>ℹ️</span>
-                <span>Enter IP addresses or ranges to scan for WLED controllers. Due to browser security restrictions, this tool cannot automatically discover devices via UDP broadcast.</span>
+                <span>Enter IP addresses or ranges to scan for WLED controllers. Due to browser security restrictions, this tool cannot automatically discover devices via UDP broadcast. <strong>Best used when opened as a local file or from HTTP (not HTTPS).</strong></span>
             </div>
             
             <div class="input-group">
@@ -397,12 +397,31 @@
         let scanAborted = false;
         let totalScans = 0;
         let completedScans = 0;
+        
+        // Protocol detection - use http:// for scanning local devices
+        // Note: WLED controllers typically only support HTTP on local networks
+        // If this page is served over HTTPS, browsers may block mixed content
+        const scanProtocol = 'http://';
+
+        function isValidIPOctet(value) {
+            const num = parseInt(value, 10);
+            return !isNaN(num) && num >= 0 && num <= 255 && value === num.toString();
+        }
+
+        function isValidIP(ip) {
+            const octets = ip.split('.');
+            if (octets.length !== 4) return false;
+            return octets.every(isValidIPOctet);
+        }
 
         function parseIPRange(input) {
             input = input.trim();
             
             // Single IP
             if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(input)) {
+                if (!isValidIP(input)) {
+                    throw new Error('Invalid IP address. Each octet must be between 0-255.');
+                }
                 return [input];
             }
             
@@ -410,11 +429,17 @@
             const rangeMatch = input.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})-(\d{1,3})$/);
             if (rangeMatch) {
                 const base = rangeMatch[1];
-                const start = parseInt(rangeMatch[2]);
-                const end = parseInt(rangeMatch[3]);
+                const start = parseInt(rangeMatch[2], 10);
+                const end = parseInt(rangeMatch[3], 10);
                 
                 if (start > end || start < 0 || end > 255) {
-                    throw new Error('Invalid IP range');
+                    throw new Error('Invalid IP range. Range values must be between 0-255.');
+                }
+                
+                // Validate the base IP part
+                const testIP = base + start;
+                if (!isValidIP(testIP)) {
+                    throw new Error('Invalid IP address. Each octet must be between 0-255.');
                 }
                 
                 const ips = [];
@@ -432,7 +457,7 @@
             const timeoutId = setTimeout(() => controller.abort(), timeout);
             
             try {
-                const response = await fetch(`http://${ip}/json/info`, {
+                const response = await fetch(`${scanProtocol}${ip}/json/info`, {
                     method: 'GET',
                     signal: controller.signal,
                     mode: 'cors'
@@ -452,14 +477,14 @@
                         ip: ip,
                         name: data.name || 'WLED Device',
                         version: data.ver || 'Unknown',
-                        vid: data.vid || 0,
+                        vid: data.vid || 0, // Version ID - stored for export and future use
                         brand: data.brand || 'WLED',
                         product: data.product || '',
                         mac: data.mac || '',
                         ledCount: data.leds ? data.leds.count : 0,
                         online: true,
                         lastSeen: new Date().toISOString(),
-                        info: data
+                        info: data // Store complete info for advanced users
                     };
                 }
                 
@@ -625,7 +650,7 @@
         }
 
         function openController(ip) {
-            window.open(`http://${ip}`, '_blank');
+            window.open(`${scanProtocol}${ip}`, '_blank');
         }
 
         async function refreshController(ip) {
